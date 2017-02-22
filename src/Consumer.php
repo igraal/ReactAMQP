@@ -45,6 +45,11 @@ class Consumer extends EventEmitter
     protected $max;
 
     /**
+     * Flags that will be passed to the AMQPQueue::get method.
+     */
+    protected $flags;
+
+    /**
      * @var React\EventLoop\Timer\TimerInterface
      */
     private $timer;
@@ -56,13 +61,15 @@ class Consumer extends EventEmitter
      * @param React\EventLoop\LoopInterface $loop     Event loop
      * @param float                         $interval Interval to check for new messages
      * @param int                           $max      Max number of messages to consume in one go
+     * @param int                           $flags    Flags to pass to AMQPQueue::get method
      */
-    public function __construct(AMQPQueue $queue, LoopInterface $loop, $interval, $max = null)
+    public function __construct(AMQPQueue $queue, LoopInterface $loop, $interval, $max = null, $flags = AMQP_NOPARAM)
     {
         $this->queue = $queue;
         $this->loop = $loop;
         $this->max = $max;
         $this->timer = $this->loop->addPeriodicTimer($interval, $this);
+        $this->flags = $flags;
 
         $this->on('close_amqp_consumer', [$this, 'close']);
     }
@@ -79,7 +86,7 @@ class Consumer extends EventEmitter
         }
 
         $counter = 0;
-        while ($envelope = $this->queue->get()) {
+        while ($envelope = $this->queue->get($this->flags)) {
             $this->emit('consume', [$envelope, $this->queue]);
             if ($this->max && ++$counter >= $this->max) {
                 return;
